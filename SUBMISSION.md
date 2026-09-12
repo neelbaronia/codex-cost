@@ -1,5 +1,7 @@
 # Codex Cost — submission packet
 
+**Published on 2026-09-12:** [Codex Cost in the official plugin directory](https://chatgpt.com/plugins/plugins_6aa57d893fbc8191b415a4321d9ce63c), version **0.1.2**.
+
 ## Package
 
 - Submission type: **Skills only**
@@ -38,8 +40,8 @@ Version 0.1.2 aligns the package author and listing developer name with the sele
 
 ## Directory workflow
 
-Create a **Skills only** plugin at [OpenAI Platform](https://platform.openai.com/plugins) and upload `codex-cost-0.1.2.zip`. Verify the displayed publisher, listing fields, and asset previews before submitting. The account needs Apps Management Write access and a verified publishing identity. Complete any required attestations in the portal, submit for review, then choose Publish after approval.
+The **Skills only** submission of `codex-cost-0.1.2.zip` is published. The official directory link above is the primary installation route; the [GitHub installation instructions](README.md#install-the-plugin) remain available.
 
-The ZIP and public GitHub repository do not themselves create a directory listing. OpenAI performs the platform's security scans and review after submission.
+Manage future releases through the existing plugin in [OpenAI Platform](https://platform.openai.com/plugins). Verify the publisher, listing fields, and asset previews, complete the required checks, then publish the approved release.
 
 References: [Submission guide](https://developers.openai.com/plugins/deploy/submission), [Submission validation](https://developers.openai.com/plugins/deploy/submission-errors).

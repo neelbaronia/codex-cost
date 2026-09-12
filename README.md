@@ -6,7 +6,9 @@ This repository contains a ready-to-install Codex plugin and its standalone skil
 
 ## Install the plugin
 
-Run these commands in your shell:
+[Install Codex Cost from the official plugin directory](https://chatgpt.com/plugins/plugins_6aa57d893fbc8191b415a4321d9ce63c). Version **0.1.2** was published on **2026-09-12**.
+
+You can also install from GitHub by running these commands in your shell:
 
 ```sh
 codex plugin marketplace add neelbaronia/codex-cost --ref main
@@ -20,8 +22,6 @@ Use Codex Cost to open my animated usage dashboard.
 ```
 
 You can also select the bundled skill from `/skills` or by typing `$` in Codex. The plugin contains the same skill and dashboard as the standalone installation below, so either installation method is sufficient.
-
-This GitHub marketplace is the plugin's distribution source. A listing in the official public plugin directory requires a separate submission and review.
 
 Download the plugin ZIP from [GitHub releases](https://github.com/neelbaronia/codex-cost/releases). The [submission packet](SUBMISSION.md) includes listing copy and reviewer setup; [synthetic test cases](review/TEST-CASES.md) let reviewers inspect usage reports without personal history.
 
