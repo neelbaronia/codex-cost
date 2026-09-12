@@ -23,6 +23,8 @@ You can also select the bundled skill from `/skills` or by typing `$` in Codex. 
 
 This GitHub marketplace is the plugin's distribution source. A listing in the official public plugin directory requires a separate submission and review.
 
+Download the plugin ZIP from [GitHub releases](https://github.com/neelbaronia/codex-cost/releases). The [submission packet](SUBMISSION.md) includes listing copy and reviewer setup; [synthetic test cases](review/TEST-CASES.md) let reviewers inspect usage reports without personal history.
+
 ## Install only the skill
 
 Paste this into Codex:
