@@ -1,0 +1,21 @@
+{
+  "name": "codex-cost",
+  "interface": {
+    "displayName": "Codex Cost"
+  },
+  "plugins": [
+    {
+      "name": "codex-cost",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/neelbaronia/codex-cost.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

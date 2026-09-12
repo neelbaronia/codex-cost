@@ -2,9 +2,28 @@
 
 An animated ASCII dashboard for your local Codex usage: tokens, models, API-equivalent cost, and cost by repository.
 
-This repository contains the complete, ready-to-install Codex skill. Its runtime is bundled, so no npm install, build step, API key, or separate account sign-in is required.
+This repository contains a ready-to-install Codex plugin and its standalone skill. The dashboard runtime is bundled, so no npm install, build step, API key, or separate account sign-in is required.
 
-## Install in Codex
+## Install the plugin
+
+Run these commands in your shell:
+
+```sh
+codex plugin marketplace add neelbaronia/codex-cost --ref main
+codex plugin add codex-cost@codex-cost
+```
+
+The first command registers this repository's marketplace; the second installs the plugin. Open a new Codex chat after installation, then ask:
+
+```text
+Use Codex Cost to open my animated usage dashboard.
+```
+
+You can also select the bundled skill from `/skills` or by typing `$` in Codex. The plugin contains the same skill and dashboard as the standalone installation below, so either installation method is sufficient.
+
+This GitHub marketplace is the plugin's distribution source. A listing in the official public plugin directory requires a separate submission and review.
+
+## Install only the skill
 
 Paste this into Codex:
 
@@ -63,7 +82,9 @@ The GPT-3 era comparison is a pricing thought experiment, not a comparison of eq
 
 ## Package contents
 
-The installable folder is [`skills/codex-cost`](skills/codex-cost). Keep the whole folder together, including `scripts/chunks/`: the main script imports those bundled modules. [`SKILL.md`](skills/codex-cost/SKILL.md) contains the workflow instructions and supported options; `agents/openai.yaml` supplies the display metadata.
+The plugin lives at the repository root. [`plugin.json`](plugin.json) declares the portable plugin identity, [`.codex-plugin/plugin.json`](.codex-plugin/plugin.json) supplies Codex presentation metadata and compatibility, and [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) makes the plugin installable from this GitHub repository.
+
+The standalone installable folder remains [`skills/codex-cost`](skills/codex-cost). Keep the whole folder together, including `scripts/chunks/`: the main script imports those bundled modules. [`SKILL.md`](skills/codex-cost/SKILL.md) contains the workflow instructions and supported options; `agents/openai.yaml` supplies the skill display metadata.
 
 For direct use from a clone of this repository:
 

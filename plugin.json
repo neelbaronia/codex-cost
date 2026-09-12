@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codex-cost",
+  "version": "0.1.0",
+  "description": "Animated local Codex usage and API-equivalent cost dashboard",
+  "author": {
+    "name": "neelbaronia",
+    "url": "https://github.com/neelbaronia"
+  },
+  "homepage": "https://github.com/neelbaronia/codex-cost",
+  "repository": "https://github.com/neelbaronia/codex-cost",
+  "license": "MIT",
+  "keywords": ["codex", "usage", "cost", "ascii", "dashboard"]
+}
