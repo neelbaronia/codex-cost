@@ -4,7 +4,7 @@
 
 - Submission type: **Skills only**
 - Package ID: `codex-cost`
-- Version: `0.1.1`
+- Version: `0.1.2`
 - Display name: **Codex Cost**
 - Subtitle: **Codex usage and cost charts**
 - Category: **Productivity**
@@ -12,7 +12,7 @@
 - Support: https://github.com/neelbaronia/codex-cost/issues
 - License: MIT
 
-The publisher in the submission must match the verified individual or organization used in the OpenAI Platform portal. The package currently identifies the GitHub maintainer, `neelbaronia`.
+The selected individual publisher in the OpenAI Platform portal is **NEEL AKAASH BARONIA**. Both package manifests identify that publisher; the GitHub maintainer remains `neelbaronia`.
 
 ## Description
 
@@ -34,11 +34,11 @@ The plugin reads local Codex session logs and stores a local usage cache. It doe
 
 ## Release notes
 
-Version 0.1.1 adds a square logo and composer icon, a subtitle within directory limits, synthetic reviewer fixtures, and a packaged ZIP. The dashboard runtime and separate Terminal window workflow are unchanged from 0.1.0.
+Version 0.1.2 aligns the package author and listing developer name with the selected individual publisher, NEEL AKAASH BARONIA. It retains the square logo and composer icon, subtitle within directory limits, synthetic reviewer fixtures, and packaged ZIP introduced in 0.1.1. The dashboard runtime and separate Terminal window workflow are unchanged from 0.1.0.
 
 ## Directory workflow
 
-Create a **Skills only** plugin at [OpenAI Platform](https://platform.openai.com/plugins) and upload `codex-cost-0.1.1.zip`. Verify the displayed publisher, listing fields, and asset previews before submitting. The account needs Apps Management Write access and a verified publishing identity. Complete any required attestations in the portal, submit for review, then choose Publish after approval.
+Create a **Skills only** plugin at [OpenAI Platform](https://platform.openai.com/plugins) and upload `codex-cost-0.1.2.zip`. Verify the displayed publisher, listing fields, and asset previews before submitting. The account needs Apps Management Write access and a verified publishing identity. Complete any required attestations in the portal, submit for review, then choose Publish after approval.
 
 The ZIP and public GitHub repository do not themselves create a directory listing. OpenAI performs the platform's security scans and review after submission.
 

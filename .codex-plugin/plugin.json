@@ -1,9 +1,9 @@
 {
   "name": "codex-cost",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Animated local Codex usage and API-equivalent cost dashboard",
   "author": {
-    "name": "neelbaronia",
+    "name": "NEEL AKAASH BARONIA",
     "url": "https://github.com/neelbaronia"
   },
   "homepage": "https://github.com/neelbaronia/codex-cost",
@@ -14,7 +14,7 @@
     "displayName": "Codex Cost",
     "shortDescription": "Codex usage and cost charts",
     "longDescription": "View token activity, model usage, API-equivalent cost, and cost by repository. The bundled skill reads local Codex history and opens an animated dashboard in a new macOS Terminal window. Requires Node.js 22.13 or newer.",
-    "developerName": "neelbaronia",
+    "developerName": "NEEL AKAASH BARONIA",
     "logo": "./assets/logo.png",
     "composerIcon": "./assets/composer-icon.png",
     "category": "Productivity",
