@@ -24,7 +24,8 @@ Usage: node scripts/codex-cost.mjs [options]
 Dashboard pages: Activity, Cumulative cost, Models, Token mix, GPT-3 era, Cost by repo.
 Left/Right or h/l change pages; 1-6 jump directly; Home/End jump to first/last.
 Up/Down or k/j and PageUp/PageDown scroll; a toggles ASCII/Braille;
-c toggles color; m switches Activity between tokens and API dollars.
+c toggles color; t cycles the range through all time, 90d, 30d, 1w, and 1d;
+m switches Activity between tokens and API dollars.
 The dashboard starts with fine ASCII marks, matching its animation previews.
 Space pauses/resumes motion; r replays the page entrance while moving.
 q or Ctrl+C quits. Every page covers the full selected range.

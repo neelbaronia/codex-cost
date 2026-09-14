@@ -60,7 +60,7 @@ Use $codex-cost to show my last 7 days as static ASCII charts in this conversati
 Use $codex-cost to show my usage as JSON.
 ```
 
-The six dashboard pages are **Activity**, **Cumulative cost**, **Models**, **Token mix**, **GPT-3 era**, and **Cost by repo**. Every page summarizes the full selected range. Supported ranges are all history, 7 days, 30 days, and 90 days.
+The six dashboard pages are **Activity**, **Cumulative cost**, **Models**, **Token mix**, **GPT-3 era**, and **Cost by repo**. Every page summarizes the full selected range. Press `t` to cycle through all time, 90 days, 30 days, 1 week, and 1 day.
 
 | Key | Action |
 | --- | --- |
@@ -68,6 +68,7 @@ The six dashboard pages are **Activity**, **Cumulative cost**, **Models**, **Tok
 | `1`–`6` | Jump to a chart |
 | Up / Down | Scroll the current page |
 | `m` | Switch Activity between tokens and API-equivalent dollars |
+| `t` | Cycle the selected range: all time, 90d, 30d, 1w, 1d |
 | `a` | Toggle ASCII and Unicode/Braille |
 | `c` | Toggle color |
 | Space | Pause or resume animation |

@@ -52,6 +52,7 @@ Controls:
 - Home/End: jump to the first/last chart page.
 - Up/Down or `k`/`j`, and PageUp/PageDown: scroll the current page.
 - `m`: on Activity, switch the Y axis between daily tokens and API-equivalent dollars.
+- `t`: cycle the selected range through all time, 90d, 30d, 1w, and 1d; all pages update.
 - `a`: toggle ASCII and Unicode/Braille characters; starts in ASCII.
 - `c`: toggle color.
 - Space: pause/resume chart motion.

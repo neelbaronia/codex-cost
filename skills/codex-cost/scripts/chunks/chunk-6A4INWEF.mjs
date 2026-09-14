@@ -10,6 +10,7 @@ import {
 
 // src/terminal/inspector.ts
 import { emitKeypressEvents } from "node:readline";
+import { getAnalytics } from "./service-SIMU6ROX.mjs";
 
 // src/terminal/stacked-area.ts
 function createActivityStack(days, metric, columns) {
@@ -64,6 +65,17 @@ function rasterActivityStack(stack, columns, rows, subrows = 8) {
 
 // src/terminal/inspector-render.ts
 var INSPECTOR_PAGES = ["Activity", "Cumulative cost", "Models", "Token mix", "GPT-3 era", "Cost by repo"];
+var INSPECTOR_RANGES = [
+  { label: "ALL TIME", days: void 0 },
+  { label: "90D", days: 90 },
+  { label: "30D", days: 30 },
+  { label: "1W", days: 7 },
+  { label: "1D", days: 1 }
+];
+function inspectorRangeIndex(days) {
+  const index = INSPECTOR_RANGES.findIndex((range) => range.days === days);
+  return index >= 0 ? index : 0;
+}
 function createInspectorData(analytics) {
   const days = groupDays(analytics.daily, "day");
   const cumulative = cumulativeDays(analytics.daily);
@@ -423,7 +435,8 @@ function renderInspector(data, options) {
     }
   };
   header.push(paint("CODEX COST / LOCAL ANALYTICS", "heading"));
-  header.push(...wrap(data.days.length ? `${data.days[0].date} to ${data.days.at(-1).date} / UTC` : "No recorded dates / UTC", width));
+  const rangeLabel = options.rangeLabel ? ` / RANGE ${safe(options.rangeLabel)}` : "";
+  header.push(...wrap(data.days.length ? `${data.days[0].date} to ${data.days.at(-1).date} / UTC${rangeLabel}` : `No recorded dates / UTC${rangeLabel}`, width));
   header.push(...fieldRows([{ text: `TOKENS ${exact(totals.totalTokens)}` }, { text: `API EQUIVALENT ${cost(totals, true)}`, role: totals.unpricedTokens && !totals.pricedTokens ? "warning" : "cost" }], width, options.color));
   header.push(...fieldRows([{ text: `INPUT ${exact(totals.inputTokens)}`, role: "input" }, { text: `CACHED ${exact(totals.cachedInputTokens)}`, role: "cached" }, { text: `OUTPUT ${exact(totals.outputTokens)}`, role: "output" }], width, options.color));
   header.push(...fieldRows([{ text: `UNPRICED ${exact(totals.unpricedTokens)}`, role: totals.unpricedTokens ? "warning" : void 0 }, { text: `${exact(data.analytics.sessions)} SESSIONS` }, { text: `${data.models.length} MODELS` }], width, options.color));
@@ -661,7 +674,7 @@ ${sameWindowHint()}
 `);
     return;
   }
-  const data = createInspectorData(analytics);
+  let data = createInspectorData(analytics);
   const clock = io.clock ?? {
     now: () => performance.now(),
     every: (callback, milliseconds) => {
@@ -670,6 +683,7 @@ ${sameWindowHint()}
     }
   };
   let page = 0, scroll = 0, ascii = !!options.ascii, closed = false;
+  let rangeIndex = inspectorRangeIndex(options.days), pendingRangeIndex = -1, periodLoading = false, periodError = "";
   let metric = options.metric ?? "tokens";
   let playing = !options.noMotion, elapsedMs = 0, lastTick = clock.now();
   const entranceDuration = () => page === 4 ? 1600 : 650;
@@ -720,7 +734,7 @@ ${sameWindowHint()}
       if (width < 40 || height < 16) {
         lines = ["CODEX COST / DASHBOARD", "Enlarge to at least 41 columns x 16 rows.", "q quit"].map((line) => line.slice(0, width));
       } else {
-        const hints = ["Left/Right charts", `1-${INSPECTOR_PAGES.length} jump`, "Up/Down scroll", ...page === 0 ? ["m Tokens/API $"] : [], "Space pause", "r replay", "a glyphs", "c color", "q quit"];
+        const hints = ["Left/Right charts", `1-${INSPECTOR_PAGES.length} jump`, "Up/Down scroll", "t Period", ...page === 0 ? ["m Tokens/API $"] : [], "Space pause", "r replay", "a glyphs", "c color", "q quit"];
         const controls = [];
         for (const hint of hints) {
           const last = controls.length - 1;
@@ -738,6 +752,7 @@ ${sameWindowHint()}
           color,
           metric,
           height: height - controls.length - 2,
+          rangeLabel: INSPECTOR_RANGES[rangeIndex].label,
           motion: motionStarted ? { elapsedMs, reveal: Math.min(1, elapsedMs / entranceDuration()) } : void 0
         });
         let frame = render();
@@ -754,7 +769,10 @@ ${sameWindowHint()}
           scroll = Math.max(0, Math.min(scroll, maxScroll));
           const body = frame.body.slice(scroll, scroll + visibleBodyRows);
           while (body.length < visibleBodyRows) body.push("");
-          const status = `PAGE ${page + 1}/${INSPECTOR_PAGES.length} | ${ascii ? "ASCII" : page === 0 ? "FILLED" : "BRAILLE"} | ${color ? "COLOR" : "MONO"} | ${playing ? "MOTION" : "PAUSED"}${page === 0 ? ` | ${metric === "cost" ? "API $" : "TOKENS"}` : ""}${maxScroll ? ` | scroll ${scroll + 1}/${maxScroll + 1}` : ""}`;
+          const activeRange = INSPECTOR_RANGES[rangeIndex];
+          const pendingRange = pendingRangeIndex >= 0 ? INSPECTOR_RANGES[pendingRangeIndex] : void 0;
+          const rangeStatus = periodLoading && pendingRange ? `RANGE ${activeRange.label} -> ${pendingRange.label}` : `RANGE ${activeRange.label}`;
+          const status = `PAGE ${page + 1}/${INSPECTOR_PAGES.length} | ${ascii ? "ASCII" : page === 0 ? "FILLED" : "BRAILLE"} | ${color ? "COLOR" : "MONO"} | ${playing ? "MOTION" : "PAUSED"} | ${rangeStatus}${periodError ? " | PERIOD ERROR" : ""}${page === 0 ? ` | ${metric === "cost" ? "API $" : "TOKENS"}` : ""}${maxScroll ? ` | scroll ${scroll + 1}/${maxScroll + 1}` : ""}`;
           lines = [...frame.header, navigation, ...body, paint(status.slice(0, width), 97), ...controls.map((line) => paint(line.slice(0, width)))];
         }
       }
@@ -804,6 +822,34 @@ ${sameWindowHint()}
         finish(error);
       }
     };
+    const selectPeriod = () => {
+      if (periodLoading) return;
+      const nextIndex = (rangeIndex + 1) % INSPECTOR_RANGES.length;
+      const nextRange = INSPECTOR_RANGES[nextIndex];
+      pendingRangeIndex = nextIndex;
+      periodLoading = true;
+      periodError = "";
+      safelyDraw();
+      getAnalytics({ days: nextRange.days }).then((nextAnalytics) => {
+        if (closed) return;
+        analytics = nextAnalytics;
+        data = createInspectorData(analytics);
+        rangeIndex = nextIndex;
+        pendingRangeIndex = -1;
+        periodLoading = false;
+        scroll = 0;
+        elapsedMs = playing ? 0 : entranceDuration();
+        safelyDraw();
+        syncFrames();
+      }).catch(() => {
+        if (closed) return;
+        pendingRangeIndex = -1;
+        periodLoading = false;
+        periodError = `Unable to load ${nextRange.label}`;
+        safelyDraw();
+        syncFrames();
+      });
+    };
     const onKey = (text, key = {}) => {
       if (closed) return;
       if (key.name === "q" || key.name === "escape" || key.ctrl && ["c", "d"].includes(key.name ?? "")) {
@@ -825,6 +871,10 @@ ${sameWindowHint()}
       else if (key.name === "down" || key.name === "j") scroll++;
       else if (key.name === "pageup") scroll -= visibleBodyRows;
       else if (key.name === "pagedown") scroll += visibleBodyRows;
+      else if (key.name === "t" || text === "T" || text === "t") {
+        selectPeriod();
+        return;
+      }
       else if (key.name === "m" && page === 0) {
         metric = metric === "tokens" ? "cost" : "tokens";
         scroll = 0;
