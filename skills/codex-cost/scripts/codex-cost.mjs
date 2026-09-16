@@ -84,7 +84,8 @@ async function main() {
     color: !!process.stdout.isTTY && !options.noColor && (options.color || process.env.NO_COLOR === void 0) && !plain,
     bucket: options.bucket,
     metric: options.metric,
-    details: options.details
+    details: options.details,
+    rangeLabel: options.days === void 0 ? "all" : `${options.days}d`
   }));
 }
 try {

@@ -157,6 +157,10 @@ var exact = (value) => value.toLocaleString("en-US", { maximumFractionDigits: 0 
 var dollars = (value) => value > 0 && value < 1e-9 ? "<$0.000000001" : `$${value.toLocaleString("en-US", { maximumFractionDigits: 9 })}`;
 var roundedDollars = (value) => value > 0 && value < 0.01 ? "<$0.01" : value.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 var cost = (totals, rounded = false) => totals.unpricedTokens && !totals.pricedTokens ? "Unpriced" : `${(rounded ? roundedDollars : dollars)(totals.estimatedApiCost)}${totals.unpricedTokens ? " (partial)" : ""}`;
+function comparisonMultiple(historical, current) {
+  if (!(historical > 0) || !(current > 0)) return "n/a";
+  return `${(historical / current).toLocaleString("en-US", { maximumFractionDigits: 1 })}x`;
+}
 var percent = (value, total) => `${(total ? value / total * 100 : 0).toFixed(1)}%`;
 function abbreviated(value) {
   const unit = [[1e15, "Q"], [1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "K"]].find(([scale]) => value >= scale);
@@ -435,8 +439,8 @@ function renderInspector(data, options) {
     }
   };
   header.push(paint("CODEX COST / LOCAL ANALYTICS", "heading"));
-  const rangeLabel = options.rangeLabel ? ` / RANGE ${safe(options.rangeLabel)}` : "";
-  header.push(...wrap(data.days.length ? `${data.days[0].date} to ${data.days.at(-1).date} / UTC${rangeLabel}` : `No recorded dates / UTC${rangeLabel}`, width));
+  const rangeLabel = options.rangeLabel ? ` / ${safe(options.rangeLabel)}` : "";
+  header.push(...wrap(data.days.length ? `${data.days[0].date} to ${data.days.at(-1).date}${rangeLabel} / UTC` : `No recorded dates${rangeLabel} / UTC`, width));
   header.push(...fieldRows([{ text: `TOKENS ${exact(totals.totalTokens)}` }, { text: `API EQUIVALENT ${cost(totals, true)}`, role: totals.unpricedTokens && !totals.pricedTokens ? "warning" : "cost" }], width, options.color));
   header.push(...fieldRows([{ text: `INPUT ${exact(totals.inputTokens)}`, role: "input" }, { text: `CACHED ${exact(totals.cachedInputTokens)}`, role: "cached" }, { text: `OUTPUT ${exact(totals.outputTokens)}`, role: "output" }], width, options.color));
   header.push(...fieldRows([{ text: `UNPRICED ${exact(totals.unpricedTokens)}`, role: totals.unpricedTokens ? "warning" : void 0 }, { text: `${exact(data.analytics.sessions)} SESSIONS` }, { text: `${data.models.length} MODELS` }], width, options.color));
@@ -592,6 +596,7 @@ function renderInspector(data, options) {
     text();
     pair("Historical scenario / exact", dollars(historical), "historical");
     pair("Current API estimate / exact", cost(totals), totals.unpricedTokens && !totals.pricedTokens ? "warning" : "cost");
+    pair("GPT-3 / current API multiple", comparisonMultiple(historical, totals.estimatedApiCost), "historical");
     text(`${exact(totals.totalTokens)} tokens x $${GPT3_ERA_PRICING.usdPerMillion} per million.`, "historical");
     text(GPT3_ERA_PRICING.basis);
     text();
@@ -668,7 +673,7 @@ async function runInspector(analytics, options = {}, io = { input: process.stdin
   const { input, output, signals } = io;
   const manageScreen = io.manageScreen !== false;
   if (!input.isTTY || !output.isTTY || process.env.TERM === "dumb") {
-    output.write(renderTerminal(analytics, { width: options.width ?? output.columns ?? 100, ascii: true, color: false, details: options.details, metric: options.metric }));
+    output.write(renderTerminal(analytics, { width: options.width ?? output.columns ?? 100, ascii: true, color: false, details: options.details, metric: options.metric, rangeLabel: options.days === void 0 ? "all" : `${options.days}d` }));
     output.write(`
 ${sameWindowHint()}
 `);
@@ -752,7 +757,7 @@ ${sameWindowHint()}
           color,
           metric,
           height: height - controls.length - 2,
-          rangeLabel: INSPECTOR_RANGES[rangeIndex].label,
+          rangeLabel: INSPECTOR_RANGES[rangeIndex].label.toLowerCase(),
           motion: motionStarted ? { elapsedMs, reveal: Math.min(1, elapsedMs / entranceDuration()) } : void 0
         });
         let frame = render();

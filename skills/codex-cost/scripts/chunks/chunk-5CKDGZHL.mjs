@@ -222,7 +222,8 @@ function renderTerminal(analytics, options = {}) {
   text("Every token, in your terminal.");
   rule();
   const orderedDates = analytics.daily.map((day) => day.date).sort();
-  text(orderedDates.length ? `${orderedDates[0]} to ${orderedDates[orderedDates.length - 1]} / UTC` : "No recorded dates / UTC");
+  const rangeLabel = options.rangeLabel ? ` / ${options.rangeLabel}` : "";
+  text(orderedDates.length ? `${orderedDates[0]} to ${orderedDates[orderedDates.length - 1]}${rangeLabel} / UTC` : `No recorded dates${rangeLabel} / UTC`);
   pair("API-equivalent estimate", costLabel(analytics.totals));
   fields2([
     ["Total tokens", exact(analytics.totals.totalTokens)],
