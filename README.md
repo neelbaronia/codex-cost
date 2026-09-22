@@ -83,6 +83,15 @@ Dollar amounts are **API-equivalent estimates**, not Codex subscription charges 
 
 The GPT-3 era comparison is a pricing thought experiment, not a comparison of equivalent model capabilities.
 
+Pricing checked September 22, 2026 includes GPT-6 Sol (`gpt-6-sol`) and GPT-6
+Luna (`gpt-6-luna`). Standard rates per million tokens are $2 / $0.20 / $10 for
+Sol and $0.10 / $0.01 / $0.50 for Luna (input / cached input / output).
+Recorded cache writes and prompts above 272,000 input tokens use their published
+rates from [OpenAI API pricing](https://developers.openai.com/api/docs/pricing).
+Both models appear in the token and dollar charts with distinct colors. Run
+`python3 review/check-model-pricing.py` to verify the bundled rates and accounting
+using synthetic history.
+
 ## Package contents
 
 The plugin lives at the repository root. [`plugin.json`](plugin.json) declares the portable plugin identity, [`.codex-plugin/plugin.json`](.codex-plugin/plugin.json) supplies Codex presentation metadata and compatibility, and [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) makes the plugin installable from this GitHub repository.

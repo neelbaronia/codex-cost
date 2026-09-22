@@ -128,6 +128,8 @@ function wrap(value, width) {
 var roles = { heading: 25, input: 33, cached: 30, output: 166, cost: 28, warning: 130, historical: 97 };
 var palette = [33, 166, 30, 97, 130, 28, 63, 162, 60, 136];
 var knownColors = {
+  "gpt-6-sol": 39,
+  "gpt-6-luna": 42,
   "gpt-5.6-sol": 33,
   "gpt-6-astra": 166,
   "gpt-5.6-terra": 30,

@@ -515,7 +515,7 @@ async function indexCodex(options = {}) {
 import { createHash as createHash3 } from "node:crypto";
 
 // src/pricing/models.ts
-var PRICING_CHECKED_AT = "2026-09-08";
+var PRICING_CHECKED_AT = "2026-09-22";
 var PRICING_SOURCE_URL = "https://developers.openai.com/api/docs/pricing";
 var LONG_CONTEXT_THRESHOLD = 272e3;
 function pricing(model, inputPerMillion, cachedInputPerMillion, outputPerMillion, extras = {}) {
@@ -540,6 +540,16 @@ var MODEL_PRICING = Object.freeze([
   pricing("gpt-6-astra", 10, 1, 50, {
     cacheWritePerMillion: 12.5,
     longContext: longContext(20, 2, 75, 25)
+  }),
+  // September 22 release: exact public model IDs and Standard API rates.
+  // Above 272K input tokens, the long-context rates apply to the full request.
+  pricing("gpt-6-sol", 2, 0.2, 10, {
+    cacheWritePerMillion: 2.5,
+    longContext: longContext(4, 0.4, 15, 5)
+  }),
+  pricing("gpt-6-luna", 0.1, 0.01, 0.5, {
+    cacheWritePerMillion: 0.125,
+    longContext: longContext(0.2, 0.02, 0.75, 0.25)
   }),
   pricing("gpt-5.6-sol", 4, 0.4, 20, {
     cacheWritePerMillion: 5,

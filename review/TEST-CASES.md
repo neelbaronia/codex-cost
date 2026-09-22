@@ -110,6 +110,19 @@ JSON on stdout must remain parseable.
 
 ## Validation record
 
+### September 22 model release
+
+`python3 review/check-model-pricing.py` checks the shipped `run.sh` against the
+synthetic `review/fixtures/gpt6` logs. It covers GPT-6 Sol and Luna at exactly
+272,000 and 272,001 input tokens, cached input, cache writes, output including
+reasoning, duplicate response records, and archived cumulative records. Expected
+costs are $1.555124 for Sol and $0.0777562 for Luna. The deliberately undocumented
+`gpt-6-sol-unverified` ID stays unpriced. Tests repeat with a warm cache and an
+explicit rescan, then verify the original main fixture's prices and full history.
+To check an installed copy, pass `--runner /absolute/path/to/scripts/run.sh`.
+
+### Original reviewer cases
+
 All eight cases above were executed against the bundled reporting runtime on
 2026-09-12. Exact JSON totals, price coverage, per-day accounting, cache behavior,
 invalid-range exit status, and recovery diagnostics were asserted. Static report

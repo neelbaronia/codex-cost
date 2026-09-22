@@ -61,6 +61,8 @@ function cumulativeDays(days) {
 }
 var modelColors = {
   "gpt-6-astra": "#fb8264",
+  "gpt-6-sol": "#00afff",
+  "gpt-6-luna": "#00d787",
   "gpt-5.6-sol": "#3454ed",
   "gpt-5.6-terra": "#278c86",
   "gpt-5.6-luna": "#bb852f",
