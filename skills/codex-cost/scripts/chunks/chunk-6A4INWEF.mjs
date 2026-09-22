@@ -446,6 +446,7 @@ function renderInspector(data, options) {
   header.push(...fieldRows([{ text: `TOKENS ${exact(totals.totalTokens)}` }, { text: `API EQUIVALENT ${cost(totals, true)}`, role: totals.unpricedTokens && !totals.pricedTokens ? "warning" : "cost" }], width, options.color));
   header.push(...fieldRows([{ text: `INPUT ${exact(totals.inputTokens)}`, role: "input" }, { text: `CACHED ${exact(totals.cachedInputTokens)}`, role: "cached" }, { text: `OUTPUT ${exact(totals.outputTokens)}`, role: "output" }], width, options.color));
   header.push(...fieldRows([{ text: `UNPRICED ${exact(totals.unpricedTokens)}`, role: totals.unpricedTokens ? "warning" : void 0 }, { text: `${exact(data.analytics.sessions)} SESSIONS` }, { text: `${data.models.length} MODELS` }], width, options.color));
+  header.push(...wrap(totals.provisionalPricingTokens ? `DATED PRICING / ${exact(totals.provisionalPricingTokens)} tokens at provisional older rates` : "DATED PRICING / rates at usage time", width).map((line) => paint(line, totals.provisionalPricingTokens ? "warning" : void 0)));
   header.push((options.ascii ? "-" : "\u2500").repeat(width));
   const bodyHeight = Math.max(8, (Number.isFinite(options.height) ? Math.floor(options.height) : 32) - header.length);
   const chartRows = (overhead) => Math.max(4, Math.min(16, bodyHeight - overhead));
@@ -565,7 +566,7 @@ function renderInspector(data, options) {
     const rows = Math.max(4, Math.min(12, bodyHeight - 10));
     const unpriced = !!totals.unpricedTokens && !totals.pricedTokens;
     const walls = [
-      { label: "CURRENT API", value: unpriced ? 0 : totals.estimatedApiCost, amount: unpriced ? "Unpriced" : roundedDollars(totals.estimatedApiCost), role: unpriced ? "warning" : "cost" },
+      { label: "DATED API", value: unpriced ? 0 : totals.estimatedApiCost, amount: unpriced ? "Unpriced" : roundedDollars(totals.estimatedApiCost), role: unpriced ? "warning" : "cost" },
       { label: "GPT-3 / 2020", value: historical, amount: roundedDollars(historical), role: "historical" }
     ];
     const labels = (values) => " ".repeat(axisWidth) + values.map((value, index) => paint(shorten(value, barWidth).padEnd(barWidth), walls[index].role)).join(" ".repeat(gap));
@@ -597,8 +598,8 @@ function renderInspector(data, options) {
     text("Both bars use the same dollar scale. A dot means a nonzero amount smaller than one vertical cell.");
     text();
     pair("Historical scenario / exact", dollars(historical), "historical");
-    pair("Current API estimate / exact", cost(totals), totals.unpricedTokens && !totals.pricedTokens ? "warning" : "cost");
-    pair("GPT-3 / current API multiple", comparisonMultiple(historical, totals.estimatedApiCost), "historical");
+    pair("Dated API estimate / exact", cost(totals), totals.unpricedTokens && !totals.pricedTokens ? "warning" : "cost");
+    pair("GPT-3 / dated API multiple", comparisonMultiple(historical, totals.estimatedApiCost), "historical");
     text(`${exact(totals.totalTokens)} tokens x $${GPT3_ERA_PRICING.usdPerMillion} per million.`, "historical");
     text(GPT3_ERA_PRICING.basis);
     text();

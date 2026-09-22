@@ -110,6 +110,23 @@ JSON on stdout must remain parseable.
 
 ## Validation record
 
+### Dated pricing history
+
+`python3 review/check-pricing-history.py` copies the chosen runtime into a
+temporary directory and injects fictional rates there only. It proves that the
+same ten-token request costs $0.0001 at the old rate and $0.00002 at the new rate;
+it tests the millisecond before a change, the exact boundary, equivalent timezone
+offsets, and two prices within one day. It also covers legacy records, dated
+long-context thresholds, cache writes, missing timestamps, pre-release usage,
+all aggregate totals, appending future versions, warm caches and cache migration.
+Invalid, duplicate, and out-of-order versions must fail with an actionable error.
+No real user history or installed prices are modified by this test.
+
+The original main fixture's 2,200 priced tokens retain $0.0058625, now explicitly
+identified as provisional pre-baseline pricing. Release-day GPT-6 fixtures have
+no provisional pricing. The append-only snapshot prevents accidental rewriting
+of versions already recorded in the ledger.
+
 ### September 22 model release
 
 `python3 review/check-model-pricing.py` checks the shipped `run.sh` against the

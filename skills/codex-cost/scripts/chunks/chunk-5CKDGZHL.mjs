@@ -1,5 +1,5 @@
 // src/lib/chart-data.ts
-var zeroTotals = () => ({ inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedApiCost: 0, unpricedTokens: 0, pricedTokens: 0 });
+var zeroTotals = () => ({ inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedApiCost: 0, unpricedTokens: 0, pricedTokens: 0, provisionalPricingTokens: 0, provisionalApiCost: 0 });
 var fields = Object.keys(zeroTotals());
 function calendarBucket(date, bucket) {
   if (bucket === "month") return `${date.slice(0, 7)}-01`;
@@ -233,7 +233,8 @@ function renderTerminal(analytics, options = {}) {
     ["Cache hit rate", `${(analytics.cacheHitRate * 100).toFixed(1)}%`],
     ["Models", exact(analytics.models.length)]
   ]);
-  text("USD estimate at published API rates; not your subscription bill.");
+  text("USD estimate using dated API rates; not your subscription bill.");
+  if (analytics.totals.provisionalPricingTokens) text(`${exact(analytics.totals.provisionalPricingTokens)} tokens use provisional pre-baseline prices; those historical rates are not verified.`);
   if (analytics.totals.unpricedTokens) text(`${exact(analytics.totals.unpricedTokens)} tokens have no verified price and are excluded from dollar estimates. They remain in token totals.`);
   if (!analytics.totals.totalTokens) text("No token usage was found for this period.");
   if (!analytics.source.found) text("Local Codex history directory was not found. Use --data-dir to select your Codex history.");

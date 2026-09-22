@@ -83,6 +83,18 @@ Dollar amounts are **API-equivalent estimates**, not Codex subscription charges 
 
 The GPT-3 era comparison is a pricing thought experiment, not a comparison of equivalent model capabilities.
 
+Costs now use **dated price history**: each usage event uses the applicable rate
+before totals are combined into charts. Future price updates append versions and
+do not overwrite old prices. Identical token usage before and after a price change
+can therefore have different costs. JSON exposes the preserved ledger and applied
+period subtotals for auditing.
+
+Older usage predating the original pricing snapshot keeps its previous estimate,
+but is clearly marked **provisional** because its historical rate was not verified.
+Missing timestamps or unavailable rates remain unpriced. See
+[pricing history and update rules](skills/codex-cost/PRICING-HISTORY.md) for exact
+boundaries, source provenance, cache behavior, and limitations.
+
 Pricing checked September 22, 2026 includes GPT-6 Sol (`gpt-6-sol`) and GPT-6
 Luna (`gpt-6-luna`). Standard rates per million tokens are $2 / $0.20 / $10 for
 Sol and $0.10 / $0.01 / $0.50 for Luna (input / cached input / output).
@@ -91,6 +103,10 @@ rates from [OpenAI API pricing](https://developers.openai.com/api/docs/pricing).
 Both models appear in the token and dollar charts with distinct colors. Run
 `python3 review/check-model-pricing.py` to verify the bundled rates and accounting
 using synthetic history.
+
+Run `python3 review/check-pricing-history.py` for price-change boundary tests,
+including warm caches, future versions, long-context thresholds, and preservation
+of old rates. Both checks accept `--runner /absolute/path/to/scripts/run.sh`.
 
 ## Package contents
 

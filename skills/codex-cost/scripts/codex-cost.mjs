@@ -73,7 +73,7 @@ async function main() {
     return;
   }
   if (options.json) {
-    console.log(JSON.stringify({ sessions: analytics.sessions, ...analytics.totals, cacheHitRate: analytics.cacheHitRate, historicalComparison: analytics.historicalComparison, models: analytics.models, daily: analytics.daily, pricingCheckedAt: analytics.pricingCheckedAt, assumptions: analytics.assumptions, diagnostics: { ...analytics.source, directory: void 0 } }, null, 2));
+    console.log(JSON.stringify({ sessions: analytics.sessions, ...analytics.totals, cacheHitRate: analytics.cacheHitRate, historicalComparison: analytics.historicalComparison, models: analytics.models, daily: analytics.daily, pricingCheckedAt: analytics.pricingCheckedAt, pricingMethod: analytics.pricingMethod, pricingHistory: analytics.pricing, pricingPeriods: analytics.pricingPeriods, projects: analytics.projects, sessionDetails: analytics.sessionDetails, assumptions: analytics.assumptions, diagnostics: { ...analytics.source, directory: void 0 } }, null, 2));
     return;
   }
   const { renderTerminal } = await import("./chunks/render-7KEDKSTK.mjs");

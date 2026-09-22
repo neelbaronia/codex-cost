@@ -32,6 +32,14 @@ def report(fixture, cache, *extra):
 
 def verify_release(data):
     assert data["pricingCheckedAt"] == "2026-09-22"
+    assert data["pricingMethod"] == "usage-time"
+    assert data["provisionalPricingTokens"] == 0
+    close(data["provisionalApiCost"], 0)
+    # Existing ledger entries are immutable; future versions may only add rows.
+    preserved = json.loads((ROOT / "review/fixtures/pricing-history-baseline.json").read_text())
+    history = [{k: v for k, v in row.items() if k != "effectiveTo"} for row in data["pricingHistory"]]
+    for row in preserved:
+        assert row in history, f"Historical pricing version was changed or removed: {row['model']} {row['effectiveFrom']}"
     assert data["sessions"] == 7
     assert data["totalTokens"] == 1412202
     assert data["pricedTokens"] == 1130202
@@ -73,7 +81,23 @@ with tempfile.TemporaryDirectory(prefix="codex-cost-pricing-") as tmp:
     assert old["pricedTokens"] == 2200
     assert old["unpricedTokens"] == 220
     close(old["estimatedApiCost"], 0.0058625)
+    assert old["provisionalPricingTokens"] == 2200
+    close(old["provisionalApiCost"], 0.0058625)
+    assert any("provisional pre-baseline" in note for note in old["diagnostics"]["warnings"])
     assert old["daily"][0]["date"] == "2026-01-05"
     assert len(old["daily"]) > 90
+
+    # Presentation must disclose provisional history without losing any charts.
+    for bucket in ["day", "week", "month"]:
+        rendered = subprocess.run(
+            ["/bin/sh", str(args.runner), "--terminal", "--ascii", "--no-color",
+             "--width", "80", "--range", "all", "--bucket", bucket, "--data-dir",
+             str(ROOT / "review/fixtures/main")],
+            env={**os.environ, "CODEX_COST_CACHE_DIR": str(cache)},
+            capture_output=True, text=True, check=True,
+        ).stdout
+        assert "provisional pre-baseline prices" in rendered
+        assert "2026-01-05" in rendered
+        assert "NaN" not in rendered
 
 print("PASS: GPT-6 Sol/Luna standard, long-context, cache-write, legacy and deduplication accounting; cache reuse; unknown IDs; existing prices and all-time history.")

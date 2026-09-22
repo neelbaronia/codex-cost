@@ -8,7 +8,8 @@ import { chmodSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-var CACHE_VERSION = 3;
+// v4 retains event timestamps and exact request context for dated pricing.
+var CACHE_VERSION = 4;
 var UsageCache = class {
   db;
   constructor(directory = process.env.CODEX_COST_CACHE_DIR || join(homedir(), ".cache", "codex-cost")) {
@@ -217,10 +218,11 @@ function sessionFromEntries(base, entries) {
   let endedAt = null;
   for (const entry of entries) {
     const value = entry.bucket;
-    const key = `${value.date}\0${value.model}\0${value.longContext}`;
+    // Do not merge across price boundaries, including changes within one day.
+    const key = JSON.stringify([value.date, value.model, entry.timestamp, value.contextInputTokens, value.longContext]);
     let bucket = buckets.get(key);
     if (!bucket) {
-      bucket = { date: value.date, model: value.model, longContext: value.longContext, ...emptyTokens() };
+      bucket = { date: value.date, model: value.model, timestamp: entry.timestamp, contextInputTokens: value.contextInputTokens, longContext: value.longContext, ...emptyTokens() };
       buckets.set(key, bucket);
     }
     for (const field of KEYS) {
@@ -267,7 +269,7 @@ async function parseSessionFile(path, options = {}) {
     if (selectedModel === "unknown") warnings.unknownModelEvents++;
     if (longContext2 === null) warnings.unknownContextEvents++;
     const date = (at || startedAt)?.slice(0, 10) || "1970-01-01";
-    entries.push({ signature, timestamp: at, request, bucket: { date, model: selectedModel, longContext: longContext2, inputTokens: usage.input - cached, cachedInputTokens: cached, cacheWriteInputTokens: writes, outputTokens: usage.output, totalTokens: usage.input + usage.output } });
+    entries.push({ signature, timestamp: at, request, bucket: { date, model: selectedModel, contextInputTokens: longContext2 === null ? null : usage.input, longContext: longContext2, inputTokens: usage.input - cached, cachedInputTokens: cached, cacheWriteInputTokens: writes, outputTokens: usage.output, totalTokens: usage.input + usage.output } });
   }
   for await (const result of metadataLines(path, size, options.maxLineBytes ?? MAX_LINE_BYTES)) {
     counters.lines++;
@@ -515,85 +517,15 @@ async function indexCodex(options = {}) {
 import { createHash as createHash3 } from "node:crypto";
 
 // src/pricing/models.ts
-var PRICING_CHECKED_AT = "2026-09-22";
-var PRICING_SOURCE_URL = "https://developers.openai.com/api/docs/pricing";
-var LONG_CONTEXT_THRESHOLD = 272e3;
-function pricing(model, inputPerMillion, cachedInputPerMillion, outputPerMillion, extras = {}) {
-  return Object.freeze({
-    model,
-    inputPerMillion,
-    cachedInputPerMillion,
-    outputPerMillion,
-    source: PRICING_SOURCE_URL,
-    checkedAt: PRICING_CHECKED_AT,
-    ...extras
-  });
-}
-var longContext = (inputPerMillion, cachedInputPerMillion, outputPerMillion, cacheWritePerMillion) => Object.freeze({
-  thresholdInputTokens: LONG_CONTEXT_THRESHOLD,
-  inputPerMillion,
-  cachedInputPerMillion,
-  outputPerMillion,
-  ...cacheWritePerMillion === void 0 ? {} : { cacheWritePerMillion }
-});
-var MODEL_PRICING = Object.freeze([
-  pricing("gpt-6-astra", 10, 1, 50, {
-    cacheWritePerMillion: 12.5,
-    longContext: longContext(20, 2, 75, 25)
-  }),
-  // September 22 release: exact public model IDs and Standard API rates.
-  // Above 272K input tokens, the long-context rates apply to the full request.
-  pricing("gpt-6-sol", 2, 0.2, 10, {
-    cacheWritePerMillion: 2.5,
-    longContext: longContext(4, 0.4, 15, 5)
-  }),
-  pricing("gpt-6-luna", 0.1, 0.01, 0.5, {
-    cacheWritePerMillion: 0.125,
-    longContext: longContext(0.2, 0.02, 0.75, 0.25)
-  }),
-  pricing("gpt-5.6-sol", 4, 0.4, 20, {
-    cacheWritePerMillion: 5,
-    longContext: longContext(8, 0.8, 30, 10),
-    note: "Promotional API pricing is available at least through November 21, 2026. Recheck before relying on later estimates."
-  }),
-  pricing("gpt-5.6-terra", 2, 0.2, 12, {
-    cacheWritePerMillion: 2.5,
-    longContext: longContext(4, 0.4, 18, 5)
-  }),
-  pricing("gpt-5.6-luna", 0.2, 0.02, 1.2, {
-    cacheWritePerMillion: 0.25,
-    longContext: longContext(0.4, 0.04, 1.8, 0.5)
-  }),
-  pricing("gpt-5.5", 5, 0.5, 30, {
-    longContext: longContext(10, 1, 45)
-  }),
-  pricing("gpt-5.4", 2.5, 0.25, 15, {
-    longContext: longContext(5, 0.5, 22.5)
-  }),
-  pricing("gpt-5.4-mini", 0.75, 0.075, 4.5),
-  pricing("gpt-5.4-nano", 0.2, 0.02, 1.25),
-  pricing("gpt-5.3-codex", 1.75, 0.175, 14),
-  pricing("gpt-5.2-codex", 1.75, 0.175, 14, {
-    source: "https://developers.openai.com/api/docs/models/gpt-5.2-codex"
-  }),
-  pricing("gpt-5.1-codex", 1.25, 0.125, 10, {
-    source: "https://developers.openai.com/api/docs/models/gpt-5.1-codex"
-  }),
-  pricing("gpt-5.2", 1.75, 0.175, 14),
-  pricing("gpt-5.1", 1.25, 0.125, 10),
-  pricing("gpt-5", 1.25, 0.125, 10),
-  pricing("gpt-5-mini", 0.25, 0.025, 2),
-  pricing("gpt-5-nano", 0.05, 5e-3, 0.4)
-]);
-var pricingByModel = new Map(MODEL_PRICING.map((entry) => [entry.model, entry]));
-function getModelPricing(model) {
-  return pricingByModel.get(model);
-}
+import { MODEL_PRICING, PRICING_CHECKED_AT, getModelPricing, provisionalPricing, pricingPeriod } from "./pricing-history.mjs";
 var PRICING_ASSUMPTIONS = Object.freeze([
   "This is an API-equivalent token estimate in USD, not your Codex subscription charge or an API invoice.",
-  `Published OpenAI Standard API rates checked on ${PRICING_CHECKED_AT} are applied to the whole history; historical prices are not reconstructed.`,
+  "Standard API rates are selected by each usage event's timestamp from preserved pricing history, before daily/model/project aggregation. New price versions do not reprice earlier usage.",
+  "Pre-baseline usage retains the original estimate as provisional; historical effective prices before the first observation have not been verified. Usage without a valid event timestamp or an applicable price stays unpriced.",
+  "Effective intervals are inclusive at the start and exclusive at the next change. Date-only announcements use midnight UTC; the actual intraday rollout time is not known.",
+  "Cumulative-only deltas are attributed to their logged event time. Costs for usage spanning a price change cannot be split exactly without individual request timestamps.",
   "Input means uncached input. Cached input is counted once at its separate rate. Reasoning tokens are included in output and are not added again.",
-  "When per-request metadata is available, prompts above 272,000 input tokens use the model's published long-context rates and recorded cache writes use the cache-write rate.",
+  "When per-request metadata is available, prompts above the dated model's long-context threshold use its long-context rates; recorded cache writes use its cache-write rate.",
   "Cumulative-only records without request context use short-context rates. Missing cache-write counts cannot be reconstructed; these estimates can understate API cost.",
   "Standard API rates are used regardless of Codex speed settings. Fast mode, Batch/Flex, regional processing, tool fees, media charges, taxes, and negotiated discounts are not estimated.",
   "Unknown model IDs are kept in token totals but excluded from the dollar estimate. No automatic aliases or substitute model prices are used.",
@@ -610,18 +542,21 @@ function atRates(usage, rates, cacheWriteTokens = 0) {
   return Number.isFinite(cost) ? cost : null;
 }
 function calculateBucketCost(usage, model, details = {}) {
-  const modelPricing = getModelPricing(model);
+  const modelPricing = getModelPricing(model, usage.timestamp);
   if (!modelPricing) return null;
-  const hasLongContext = details.longContext === void 0 ? usage.longContext : details.longContext;
+  // The threshold is part of the dated rate, not a permanently hard-coded rule.
+  const hasLongContext = details.longContext ?? (usage.contextInputTokens != null && modelPricing.longContext ?
+    usage.contextInputTokens > modelPricing.longContext.thresholdInputTokens : false);
   const rates = hasLongContext && modelPricing.longContext ? modelPricing.longContext : modelPricing;
   return atRates(usage, rates, details.cacheWriteTokens ?? usage.cacheWriteInputTokens);
 }
 
 // src/codex/aggregate.ts
-var emptyTotals = () => ({ inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedApiCost: 0, unpricedTokens: 0, pricedTokens: 0 });
+var emptyTotals = () => ({ inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedApiCost: 0, unpricedTokens: 0, pricedTokens: 0, provisionalPricingTokens: 0, provisionalApiCost: 0 });
 function priced(bucket) {
   const cost = calculateBucketCost(bucket, bucket.model);
-  return { inputTokens: bucket.inputTokens, cachedInputTokens: bucket.cachedInputTokens, outputTokens: bucket.outputTokens, totalTokens: bucket.totalTokens, estimatedApiCost: cost ?? 0, unpricedTokens: cost === null ? bucket.totalTokens : 0, pricedTokens: cost === null ? 0 : bucket.totalTokens };
+  const provisional = cost !== null && provisionalPricing(getModelPricing(bucket.model, bucket.timestamp), bucket.timestamp);
+  return { inputTokens: bucket.inputTokens, cachedInputTokens: bucket.cachedInputTokens, outputTokens: bucket.outputTokens, totalTokens: bucket.totalTokens, estimatedApiCost: cost ?? 0, unpricedTokens: cost === null ? bucket.totalTokens : 0, pricedTokens: cost === null ? 0 : bucket.totalTokens, provisionalPricingTokens: provisional ? bucket.totalTokens : 0, provisionalApiCost: provisional ? cost : 0 };
 }
 function add(target, value) {
   for (const key of Object.keys(emptyTotals())) target[key] += value[key];
@@ -638,6 +573,8 @@ function aggregateUsage(index, options = {}) {
   const models = /* @__PURE__ */ new Map();
   const projects = /* @__PURE__ */ new Map();
   const totals = emptyTotals();
+  const pricingPeriods = new Map();
+  let missingPricingTimestampTokens = 0;
   const details = [];
   for (const session of index.sessions) {
     const buckets = session.buckets.filter((b) => b.date >= cutoff && b.date <= today);
@@ -648,22 +585,35 @@ function aggregateUsage(index, options = {}) {
     const sessionDays = /* @__PURE__ */ new Map(), sessionModels = /* @__PURE__ */ new Set();
     for (const bucket of buckets) {
       const value = priced(bucket);
+      const rate = getModelPricing(bucket.model, bucket.timestamp);
+      if (!bucket.timestamp) missingPricingTimestampTokens += bucket.totalTokens;
+      if (rate && value.pricedTokens) {
+        const provisional = !!value.provisionalPricingTokens;
+        const key = JSON.stringify([rate.model, rate.effectiveFrom, provisional]);
+        const period = pricingPeriods.get(key) ?? { ...emptyTotals(), ...pricingPeriod(rate), provisional, usageFrom: bucket.timestamp, usageTo: bucket.timestamp };
+        add(period, value);
+        if (bucket.timestamp < period.usageFrom) period.usageFrom = bucket.timestamp;
+        if (bucket.timestamp > period.usageTo) period.usageTo = bucket.timestamp;
+        pricingPeriods.set(key, period);
+      }
       add(totals, value);
       add(detail, value);
       const day = daily.get(bucket.date) ?? { ...emptyTotals(), date: bucket.date, sessions: 0, models: [] };
       add(day, value);
       daily.set(bucket.date, day);
       const dayModels = dailyModels.get(bucket.date) ?? /* @__PURE__ */ new Map();
-      const dayModel = dayModels.get(bucket.model) ?? { ...emptyTotals(), model: bucket.model, sessions: 0, pricingKnown: !!getModelPricing(bucket.model) };
+      const dayModel = dayModels.get(bucket.model) ?? { ...emptyTotals(), model: bucket.model, sessions: 0, pricingKnown: true };
       if (!dayModels.has(bucket.model)) day.models.push(dayModel);
       add(dayModel, value);
+      dayModel.pricingKnown &&= value.unpricedTokens === 0;
       dayModels.set(bucket.model, dayModel);
       dailyModels.set(bucket.date, dayModels);
       const seenDayModels = sessionDays.get(bucket.date) ?? /* @__PURE__ */ new Set();
       seenDayModels.add(bucket.model);
       sessionDays.set(bucket.date, seenDayModels);
-      const model = models.get(bucket.model) ?? { ...emptyTotals(), model: bucket.model, sessions: 0, pricingKnown: !!getModelPricing(bucket.model) };
+      const model = models.get(bucket.model) ?? { ...emptyTotals(), model: bucket.model, sessions: 0, pricingKnown: true };
       add(model, value);
+      model.pricingKnown &&= value.unpricedTokens === 0;
       models.set(bucket.model, model);
       sessionModels.add(bucket.model);
     }
@@ -691,6 +641,8 @@ function aggregateUsage(index, options = {}) {
   }
   const d = index.diagnostics, w = d.warnings;
   const warnings = [];
+  if (totals.provisionalPricingTokens) warnings.push(`${totals.provisionalPricingTokens} tokens use provisional pre-baseline prices; historical rates for that period are not verified.`);
+  if (missingPricingTimestampTokens) warnings.push(`${missingPricingTimestampTokens} tokens lack a valid usage timestamp and are excluded from dollar estimates.`);
   if (d.cacheErrors) warnings.push("The local cache could not be fully read or written. Readable usage is shown, but the next scan may take longer. Check available disk space and cache-directory permissions.");
   if (d.failedFiles) warnings.push(`${d.failedFiles} files could not be read or contained unsupported session data.`);
   if (w.malformedLines) warnings.push(`${w.malformedLines} malformed or partially written lines were skipped.`);
@@ -710,7 +662,9 @@ function aggregateUsage(index, options = {}) {
     models: [...models.values()].sort((a, b) => b.totalTokens - a.totalTokens),
     projects: [...projects.values()].sort((a, b) => b.totalTokens - a.totalTokens),
     sessionDetails: details.sort((a, b) => b.estimatedApiCost - a.estimatedApiCost),
-    pricing: MODEL_PRICING.map((p) => ({ ...p, notes: p.note })),
+    pricing: MODEL_PRICING.map(pricingPeriod),
+    pricingPeriods: [...pricingPeriods.values()].sort((a, b) => a.model.localeCompare(b.model) || a.effectiveFrom.localeCompare(b.effectiveFrom) || Number(a.provisional) - Number(b.provisional)),
+    pricingMethod: "usage-time",
     pricingCheckedAt: PRICING_CHECKED_AT,
     assumptions: [
       ...PRICING_ASSUMPTIONS,
