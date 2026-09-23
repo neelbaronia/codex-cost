@@ -110,6 +110,17 @@ JSON on stdout must remain parseable.
 
 ## Validation record
 
+### Cumulative interactive Activity
+
+`python3 review/check-cumulative-activity.py` verifies independent model curves
+on a shared zero-based scale, including idle days and exact model endpoints.
+It checks tokens and dated costs, the combined Other curve, unpriced models,
+empty/single-day data, ASCII/Braille, color/monochrome, motion-cache switching,
+all reporting ranges, narrow widths, and equality between summed model totals
+and the range totals. It also checks cumulative-cost endpoint agreement. Static
+reports and JSON daily data remain daily; no usage or pricing is changed.
+Use `--runner /absolute/path/to/scripts/run.sh` to check an installed copy.
+
 ### Dated pricing history
 
 `python3 review/check-pricing-history.py` copies the chosen runtime into a

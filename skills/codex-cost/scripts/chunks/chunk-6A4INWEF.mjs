@@ -12,55 +12,31 @@ import {
 import { emitKeypressEvents } from "node:readline";
 import { getAnalytics } from "./service-SIMU6ROX.mjs";
 
-// src/terminal/stacked-area.ts
-function createActivityStack(days, metric, columns) {
+// src/terminal/activity-curves.ts
+function createActivityCurves(days, metric) {
   const field = metric === "cost" ? "estimatedApiCost" : "totalTokens";
   const totals = /* @__PURE__ */ new Map();
   for (const day of days) for (const model of day.models) totals.set(model.model, (totals.get(model.model) ?? 0) + model[field]);
   const ranked = [...totals].filter(([, value]) => value > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const series = ranked.slice(0, 5).map(([model, total], index) => ({ model, label: model, symbol: String.fromCharCode(65 + index), count: 1, total }));
+  const series = ranked.slice(0, 5).map(([model, total], index) => ({ model, label: model, symbol: String.fromCharCode(65 + index), count: 1, total, values: [] }));
   const other = ranked.slice(5);
-  if (other.length) series.push({ model: "", label: `Other (${other.length} models)`, symbol: "O", count: other.length, total: other.reduce((sum, [, total]) => sum + total, 0) });
+  if (other.length) series.push({ model: "", label: `Other (${other.length} models)`, symbol: "O", count: other.length, total: other.reduce((sum, [, total]) => sum + total, 0), values: [] });
   const owners = new Map(ranked.map(([model], index) => [model, Math.min(index, 5)]));
-  const daysPerBucket = Math.max(1, Math.ceil(days.length / Math.max(1, Math.floor(columns) || 1)));
-  const buckets = [];
-  for (let start = 0; start < days.length; start += daysPerBucket) {
-    const chunk = days.slice(start, start + daysPerBucket), values = series.map(() => 0);
-    for (const day of chunk) for (const model of day.models) {
+  const values = series.map(() => 0);
+  // Each curve accumulates only its own usage. Do not offset it by other models
+  // or sum running totals when the timeline is wider than the terminal.
+  for (const day of days) {
+    for (const model of day.models) {
       const owner = owners.get(model.model);
       if (owner !== void 0) values[owner] += model[field];
     }
-    buckets.push({ firstDate: chunk[0].date, lastDate: chunk.at(-1).date, days: chunk.length, values, total: values.reduce((sum, value) => sum + value, 0) });
+    series.forEach((curve, owner) => curve.values.push(values[owner]));
   }
-  return { series, buckets, daysPerBucket, maximum: buckets.reduce((maximum, bucket) => Math.max(maximum, bucket.total), 0) };
-}
-function rasterActivityStack(stack, columns, rows, subrows = 8) {
-  const grid = Array.from({ length: rows }, () => Array.from({ length: columns }, () => ({ owner: -1, filled: 0 })));
-  if (!stack.maximum || !stack.buckets.length) return grid;
-  const totalDays = stack.buckets.reduce((sum, bucket) => sum + bucket.days, 0);
-  for (let column = 0; column < columns; column++) {
-    const day = column === columns - 1 ? totalDays - 1 : Math.floor(column * totalDays / columns);
-    const bucket = stack.buckets[Math.min(stack.buckets.length - 1, Math.floor(day / stack.daysPerBucket))];
-    for (let row = 0; row < rows; row++) {
-      const owners = stack.series.map(() => 0);
-      let filled = 0;
-      for (let subrow = 0; subrow < subrows; subrow++) {
-        const value = stack.maximum * (rows * subrows - row * subrows - subrow - 0.5) / (rows * subrows);
-        let lower = 0;
-        for (let owner = 0; owner < bucket.values.length; owner++) {
-          const upper = lower + bucket.values[owner];
-          if (value > lower && value <= upper) {
-            owners[owner]++;
-            filled++;
-            break;
-          }
-          lower = upper;
-        }
-      }
-      if (filled) grid[row][column] = { owner: owners.indexOf(Math.max(...owners)), filled };
-    }
-  }
-  return grid;
+  return {
+    series,
+    maximum: series.reduce((maximum, curve) => Math.max(maximum, curve.total), 0),
+    total: series.reduce((sum, curve) => sum + curve.total, 0)
+  };
 }
 
 // src/terminal/inspector-render.ts
@@ -176,7 +152,7 @@ function fieldRows(fields, width, colored) {
   const result = [];
   let row = "", length = 0;
   for (const field of fields) {
-    const clean = (field.swatch && AREA_GLYPHS.includes(field.swatch) ? `${field.swatch} ` : "") + safe(field.text);
+    const clean = safe(field.text);
     if (row && length + clean.length + 3 > width) {
       result.push(row);
       row = "";
@@ -197,8 +173,6 @@ function fieldRows(fields, width, colored) {
   return result;
 }
 var BRAILLE_BITS = [1, 8, 2, 16, 4, 32, 64, 128];
-var AREA_GLYPHS = ["\u2588", "\u2593", "\u2592", "\u2591", "\u259A", "\u259E"];
-var PARTIAL_BLOCKS = ["", "\u2581", "\u2582", "\u2583", "\u2584", "\u2585", "\u2586", "\u2587"];
 var otherColor = 244;
 var seriesColor = (data, model) => model ? data.modelColors.get(model) ?? modelColor(model) : otherColor;
 var motionGeometry = /* @__PURE__ */ new WeakMap();
@@ -228,18 +202,12 @@ function emphasis(glyph, role, colored, strength) {
   const painted = colorize(glyph, tone, colored);
   return !colored || strength <= 0 ? painted : `\x1B[${strength > 0.65 ? 1 : 2}m${painted}\x1B[22m`;
 }
-function rippleGlyph(owner, column, row, motion, ascii, colored) {
-  const phase = column * 0.45 + row * 0.8 - motionTime(motion) * 27e-4 + owner * 0.9;
-  const wave = Math.sin(phase);
-  if (!colored && (column + row * 3) % 11 === 0) return ascii ? "ABCDEO"[owner] : AREA_GLYPHS[owner];
-  if (ascii) return wave > 0.75 ? "#" : wave > 0.05 ? "=" : ".";
-  return wave > 0.5 ? "\u2593" : wave > -0.15 ? "\u2592" : "\u2591";
-}
-function activityStack(data, options, columns) {
-  if (!options.motion) return createActivityStack(data.days, options.metric === "cost" ? "cost" : "tokens", columns);
-  const cache = geometryCache(data), key = `${columns}:${options.metric === "cost" ? "cost" : "tokens"}`;
-  if (cache.activity?.key !== key) cache.activity = { key, stack: createActivityStack(data.days, options.metric === "cost" ? "cost" : "tokens", columns) };
-  return cache.activity.stack;
+function activityCurves(data, options) {
+  const metric = options.metric === "cost" ? "cost" : "tokens";
+  if (!options.motion) return createActivityCurves(data.days, metric);
+  const cache = geometryCache(data);
+  if (cache.activityData?.metric !== metric) cache.activityData = { metric, curves: createActivityCurves(data.days, metric) };
+  return cache.activityData.curves;
 }
 function paintCells(cells, colored, combine) {
   if (!combine) return cells.map((cell) => colorize(cell.glyph, cell.role, colored)).join("");
@@ -251,42 +219,16 @@ function paintCells(cells, colored, combine) {
   }
   return runs.map((run) => colorize(run.glyph, run.role, colored)).join("");
 }
-function activityPlot(data, stack, options, width, rows) {
-  if (!data.days.length) return ["No recorded dates to plot."];
-  const axisWidth = 10, columns = width - axisWidth, isCost = options.metric === "cost";
-  const cache = options.motion ? geometryCache(data).activity : void 0;
-  const gridKey = `${columns}:${rows}:${options.ascii}`;
-  const grid = cache?.gridKey === gridKey ? cache.grid : rasterActivityStack(stack, columns, rows, options.ascii ? 1 : 8);
-  if (cache && cache.gridKey !== gridKey) {
-    cache.gridKey = gridKey;
-    cache.grid = grid;
-  }
-  const ticks = /* @__PURE__ */ new Set([0, Math.floor((rows - 1) / 2), rows - 1]);
-  const output = grid.map((cells, row) => {
-    const value = stack.maximum * (rows - 1 - row) / (rows - 1);
-    const tick = !ticks.has(row) ? "" : isCost ? !stack.maximum ? "--" : value > 0 && value < 0.01 ? "<$0.01" : `$${abbreviated(value)}` : abbreviated(value);
-    const marks = cells.map((cell, column) => {
-      if (cell.owner < 0) return { glyph: ticks.has(row) && column % 3 === 0 ? options.ascii ? "." : "\xB7" : " " };
-      const series = stack.series[cell.owner];
-      const glyph = options.motion && (options.ascii || cell.filled === 8) ? rippleGlyph(cell.owner, column, row, options.motion, options.ascii, options.color) : options.ascii ? series.symbol : cell.filled < 8 ? PARTIAL_BLOCKS[cell.filled] : AREA_GLYPHS[cell.owner];
-      return { glyph, role: seriesColor(data, series.model) };
-    });
-    return tick.padStart(axisWidth - 2) + (options.ascii ? " |" : " \u2502") + paintCells(marks, options.color, !!options.motion);
-  });
-  output.push(" ".repeat(axisWidth - 1) + (options.ascii ? "+" : "\u2514") + (options.ascii ? "-" : "\u2500").repeat(columns));
-  const first = safe(data.days[0].date), last = safe(data.days.at(-1).date);
-  if (data.days.length === 1) output.push(...wrap(`Date: ${first} UTC`, width));
-  else if (first.length + last.length < columns) output.push(" ".repeat(axisWidth) + first + " ".repeat(columns - first.length - last.length) + last);
-  else output.push(...wrap(`${first} to ${last} UTC`, width));
-  return output;
-}
-function plot(data, options, width, rows) {
+function plot(data, options, width, rows, activity) {
+  const curves = activity?.series ?? data.curves;
+  const isCost = !activity || options.metric === "cost";
+  const cacheName = activity ? "activityPlot" : "cost";
   const ascii = options.ascii, axisWidth = 10;
-  rows = Math.max(rows, data.curves.length);
-  const labels = data.curves.map((curve, owner) => {
+  rows = Math.max(rows, curves.length);
+  const labels = curves.map((curve, owner) => {
     const value = curve.values.at(-1) ?? 0;
-    const amount = roundedDollars(value);
-    const text = `${curve.symbol} ${amount.length + 2 <= width - axisWidth - 12 ? amount : `$${abbreviated(value)}`}`;
+    const amount = isCost ? roundedDollars(value) : abbreviated(value);
+    const text = `${curve.symbol} ${amount.length + 2 <= width - axisWidth - 12 ? amount : `${isCost ? "$" : ""}${abbreviated(value)}`}`;
     return { owner, value, text, row: 0 };
   }).sort((a, b) => b.value - a.value || a.owner - b.owner);
   const labelWidth = labels.length ? Math.max(...labels.map((label) => label.text.length)) + 2 : 0;
@@ -294,12 +236,12 @@ function plot(data, options, width, rows) {
   const sx = ascii ? 1 : 2, sy = ascii ? 1 : 4;
   const pixelWidth = columns * sx, pixelHeight = rows * sy, count = data.days.length;
   if (!count) return ["No recorded dates to plot."];
-  const series = data.curves.map((curve) => curve.values);
+  const series = curves.map((curve) => curve.values);
   let maximum = 0;
   for (const values of series) for (const value of values) maximum = Math.max(maximum, value);
   const cache = options.motion ? geometryCache(data) : void 0;
-  const geometryKey = `${width}:${rows}:${ascii}`;
-  const cached = cache?.cost?.key === geometryKey ? cache.cost.geometry : void 0;
+  const geometryKey = `${isCost}:${width}:${rows}:${ascii}`;
+  const cached = cache?.[cacheName]?.key === geometryKey ? cache[cacheName].geometry : void 0;
   const grid = cached?.grid ?? Array.from({ length: rows }, () => Array.from({ length: columns }, () => ({ bits: 0, char: " ", owner: -1 })));
   const paths = cached?.paths ?? series.map(() => []);
   const xFor = (day) => count === 1 ? 0 : day / (count - 1) * (pixelWidth - 1);
@@ -332,11 +274,11 @@ function plot(data, options, width, rows) {
       for (let day = 1; day < count; day++) line(xFor(day - 1), yFor(values[day - 1]), xFor(day), yFor(values[day]), owner);
       const row = Math.min(rows - 1, Math.max(0, Math.floor(Math.round(yFor(values[count - 1])) / sy)));
       const cell = grid[row][count === 1 ? 0 : columns - 1];
-      cell.marker = cell.marker ? "@" : data.curves[owner].symbol;
+      cell.marker = cell.marker ? "@" : curves[owner].symbol;
       cell.owner = cell.marker === "@" ? -2 : owner;
     });
   }
-  if (cache && !cached) cache.cost = { key: geometryKey, geometry: { grid, paths } };
+  if (cache && !cached) cache[cacheName] = { key: geometryKey, geometry: { grid, paths } };
   const tracers = /* @__PURE__ */ new Map();
   if (options.motion) for (const [owner, path] of paths.entries()) {
     if (path.length < 2) continue;
@@ -349,24 +291,24 @@ function plot(data, options, width, rows) {
       if (!tracers.has(position) || tracers.get(position).strength < strength) tracers.set(position, { owner, strength });
     }
   }
-  const paint = (text, owner) => colorize(text, owner < 0 ? void 0 : seriesColor(data, data.curves[owner].model), options.color);
+  const paint = (text, owner) => colorize(text, owner < 0 ? void 0 : seriesColor(data, curves[owner].model), options.color);
   const ticks = /* @__PURE__ */ new Set([0, Math.floor((rows - 1) / 2), rows - 1]);
   const output = grid.map((cells, row) => {
     const value = maximum * (rows - 1 - row) / (rows - 1);
-    const tick = !ticks.has(row) ? "" : !maximum ? "--" : value > 0 && value < 0.01 ? "<$0.01" : `$${abbreviated(value)}`;
+    const tick = !ticks.has(row) ? "" : !isCost ? abbreviated(value) : !maximum ? "--" : value > 0 && value < 0.01 ? "<$0.01" : `$${abbreviated(value)}`;
     const marks = cells.map((cell, column) => {
       if (cell.marker && !labels.some((label2) => label2.owner === cell.owner && label2.row === row)) return paint(cell.marker, cell.owner);
       if (cell.bits || cell.char !== " ") {
         const tracer = tracers.get(row * columns + column);
-        let glyph = cell.bits ? String.fromCharCode(10240 + cell.bits) : cell.char === "+" ? "+" : ".";
+        let glyph = cell.bits ? String.fromCharCode(10240 + cell.bits) : cell.char === "+" ? "+" : activity ? cell.char : ".";
         if (tracer) {
           if (ascii) glyph = tracer.strength > 0.65 ? "o" : "=";
           else if (!options.color && tracer.strength > 0.65) glyph = String.fromCharCode(10240 + (cell.bits & -cell.bits));
-          return emphasis(glyph, seriesColor(data, data.curves[tracer.owner].model), options.color, tracer.strength);
+          return emphasis(glyph, seriesColor(data, curves[tracer.owner].model), options.color, tracer.strength);
         }
-        return ascii && options.color && cell.owner >= 0 ? emphasis(glyph, seriesColor(data, data.curves[cell.owner].model), true, 0.1) : paint(glyph, cell.owner);
+        return !activity && ascii && options.color && cell.owner >= 0 ? emphasis(glyph, seriesColor(data, curves[cell.owner].model), true, 0.1) : paint(glyph, cell.owner);
       }
-      return ticks.has(row) && column % 3 === 0 ? ascii ? "." : "\xB7" : " ";
+      return !activity && ticks.has(row) && column % 3 === 0 ? ascii ? "." : "\xB7" : " ";
     }).join("");
     const label = labels.find((label2) => label2.row === row);
     return tick.padStart(axisWidth - 2) + (ascii ? " |" : " \u2502") + marks + (label ? "  " + paint(label.text, label.owner) : "");
@@ -451,27 +393,27 @@ function renderInspector(data, options) {
   const bodyHeight = Math.max(8, (Number.isFinite(options.height) ? Math.floor(options.height) : 32) - header.length);
   const chartRows = (overhead) => Math.max(4, Math.min(16, bodyHeight - overhead));
   if (page === 0) {
-    const isCost = options.metric === "cost", stack = activityStack(data, options, width - 10);
+    const isCost = options.metric === "cost", activity = activityCurves(data, options);
     const unit = isCost ? "API-equivalent USD" : "tokens";
-    heading("ACTIVITY / CONTOUR CURRENTS", `${stack.daysPerBucket > 1 ? "Bucket" : "Daily"} ${unit} / stacked by model${isCost && totals.unpricedTokens ? " / partial estimate" : ""}`);
-    fields([{ text: isCost ? "Y AXIS: API $" : "Y AXIS: TOKENS", role: isCost ? "cost" : "input" }, { text: "m switches tokens / API $" }]);
-    const legend = stack.series.map((series, index) => ({ text: `${series.symbol} ${series.model ? shorten(series.label, 24) : `Other (${series.count})`}`, role: seriesColor(data, series.model), swatch: options.ascii ? void 0 : AREA_GLYPHS[index] }));
+    heading("ACTIVITY / MODEL CURVES", `Cumulative ${unit} / unstacked by model${isCost && totals.unpricedTokens ? " / partial estimate" : ""}`);
+    fields([{ text: isCost ? "Y AXIS: CUMULATIVE API $" : "Y AXIS: CUMULATIVE TOKENS", role: isCost ? "cost" : "input" }, { text: "m switches tokens / API $" }]);
+    const legend = activity.series.map((series) => ({ text: `${series.symbol} ${series.model ? shorten(series.label, 24) : `Other (${series.count})`}`, role: seriesColor(data, series.model) }));
     const legendRows = fieldRows(legend, width, options.color);
     body.push(...legendRows);
-    if (isCost && !stack.maximum) text(totals.unpricedTokens ? "No priced usage to plot. Unpriced does not mean free." : "No priced cost recorded.", totals.unpricedTokens ? "warning" : void 0);
-    body.push(...activityPlot(data, stack, options, width, chartRows(10 + legendRows.length)));
-    if (stack.daysPerBucket > 1) text(`Consecutive ${stack.daysPerBucket}-day bucket sums; the final bucket has ${stack.buckets.at(-1)?.days ?? 0} day(s). Y values are per bucket.`);
-    else text("Each band is one model; the top edge is the daily total.");
-    text("Very thin bands may be smaller than a terminal cell.");
+    if (isCost && !activity.maximum) text(totals.unpricedTokens ? "No priced usage to plot. Unpriced does not mean free." : "No priced cost recorded.", totals.unpricedTokens ? "warning" : void 0);
+    body.push(...plot(data, options, width, chartRows(9 + legendRows.length), activity));
+    text("Each curve shows its own running total on the same zero-based scale.");
+    text("Totals restart at the beginning of the selected range; right labels show each model's range total.");
+    if (activity.series.length) text("Letters match the curves; @ marks overlapping endpoints.");
     if (isCost && totals.unpricedTokens) text(`${exact(totals.unpricedTokens)} unpriced tokens are excluded from dollar estimates.`, "warning");
     text();
     const activeDays = data.days.filter((day) => day.totalTokens > 0).length;
-    fields([{ text: `${activeDays} active days` }, { text: isCost ? `${cost(totals, true)} / range estimate` : `${exact(activeDays ? totals.totalTokens / activeDays : 0)} tokens / active day`, role: isCost ? "cost" : void 0 }]);
+    fields([{ text: `${activeDays} active days` }, { text: isCost ? `${cost(totals, true)} / range estimate` : `${exact(totals.totalTokens)} tokens / range total`, role: isCost ? "cost" : void 0 }]);
     text();
-    text("MODEL BANDS / RANGE TOTALS", "heading");
-    if (!stack.series.length && !isCost) text("No models recorded.");
-    for (const series of stack.series) pair(`${series.symbol} ${series.label}`, `${isCost ? dollars(series.total) : abbreviated(series.total) + " tokens"} / ${percent(series.total, isCost ? totals.estimatedApiCost : totals.totalTokens)}`, seriesColor(data, series.model), seriesColor(data, series.model));
-    if (stack.series.some((series) => !series.model)) text("Other combines the remaining models; all exact totals are on the Models page.");
+    text("MODEL CURVES / RANGE TOTALS", "heading");
+    if (!activity.series.length && !isCost) text("No models recorded.");
+    for (const series of activity.series) pair(`${series.symbol} ${series.label}`, `${isCost ? dollars(series.total) : abbreviated(series.total) + " tokens"} / ${percent(series.total, isCost ? totals.estimatedApiCost : totals.totalTokens)}`, seriesColor(data, series.model), seriesColor(data, series.model));
+    if (activity.series.some((series) => !series.model)) text("Other combines the remaining models; all exact totals are on the Models page.");
     if (isCost) text("Published API rates, not your Codex subscription bill.");
   } else if (page === 1) {
     heading("CUMULATIVE COST / SIGNAL DASHES", "Each curve is one model / API-equivalent USD");
@@ -780,7 +722,7 @@ ${sameWindowHint()}
           const activeRange = INSPECTOR_RANGES[rangeIndex];
           const pendingRange = pendingRangeIndex >= 0 ? INSPECTOR_RANGES[pendingRangeIndex] : void 0;
           const rangeStatus = periodLoading && pendingRange ? `RANGE ${activeRange.label} -> ${pendingRange.label}` : `RANGE ${activeRange.label}`;
-          const status = `PAGE ${page + 1}/${INSPECTOR_PAGES.length} | ${ascii ? "ASCII" : page === 0 ? "FILLED" : "BRAILLE"} | ${color ? "COLOR" : "MONO"} | ${playing ? "MOTION" : "PAUSED"} | ${rangeStatus}${periodError ? " | PERIOD ERROR" : ""}${page === 0 ? ` | ${metric === "cost" ? "API $" : "TOKENS"}` : ""}${maxScroll ? ` | scroll ${scroll + 1}/${maxScroll + 1}` : ""}`;
+          const status = `PAGE ${page + 1}/${INSPECTOR_PAGES.length} | ${ascii ? "ASCII" : "BRAILLE"} | ${color ? "COLOR" : "MONO"} | ${playing ? "MOTION" : "PAUSED"} | ${rangeStatus}${periodError ? " | PERIOD ERROR" : ""}${page === 0 ? ` | ${metric === "cost" ? "API $" : "TOKENS"}` : ""}${maxScroll ? ` | scroll ${scroll + 1}/${maxScroll + 1}` : ""}`;
           lines = [...frame.header, navigation, ...body, paint(status.slice(0, width), 97), ...controls.map((line) => paint(line.slice(0, width)))];
         }
       }

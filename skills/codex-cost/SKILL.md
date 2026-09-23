@@ -51,7 +51,7 @@ Controls:
 - `1`–`6`: open Activity, Cumulative cost, Models, Token mix, GPT-3 era, or Cost by repo directly.
 - Home/End: jump to the first/last chart page.
 - Up/Down or `k`/`j`, and PageUp/PageDown: scroll the current page.
-- `m`: on Activity, switch the Y axis between daily tokens and API-equivalent dollars.
+- `m`: on Activity, switch the Y axis between cumulative tokens and cumulative API-equivalent dollars.
 - `t`: cycle the selected range through all time, 90d, 30d, 1w, and 1d; all pages update.
 - `a`: toggle ASCII and Unicode/Braille characters; starts in ASCII.
 - `c`: toggle color.
@@ -59,13 +59,13 @@ Controls:
 - `r`: replay the page entrance while motion is running.
 - `q` or Ctrl+C: quit.
 
-Use `--range all|7d|30d|90d` when a period is requested; otherwise use all history. Activity shows daily values as shaded areas stacked by model. It starts with tokens; use `--inspect --metric cost` to start with API-equivalent dollars. The `m` key changes only Activity's metric, and that choice persists when switching pages. Weekly/monthly `--bucket` values are for static reports only.
+Use `--range all|7d|30d|90d` when a period is requested; otherwise use all history. Activity shows separate cumulative model curves on one zero-based scale, accumulating from the start of the selected range. Each curve ends at that model's own range total; the top five models are separate and Other combines the remainder. It starts with tokens; use `--inspect --metric cost` to start with API-equivalent dollars. The `m` key changes only Activity's metric, and that choice persists when switching pages. Weekly/monthly `--bucket` values are for static reports only.
 
-When history is wider than the chart, Activity sums consecutive days into labeled buckets. Interpret those Y values as bucket totals. Unpriced usage remains in token totals and is excluded from dollar estimates.
+When history is wider than the chart, Activity maps each model's daily running totals onto the available columns; it never sums cumulative values or offsets one curve by another model's usage. Unpriced usage remains in token totals and is excluded from dollar estimates. This cumulative view applies to interactive Activity only; static activity reports and JSON daily records retain their daily values.
 
 Motion is enabled by default:
 
-- Activity uses contour currents, with `.`, `=`, and `#` waves inside the model-colored areas.
+- Activity uses colored, unstacked cumulative model curves with signal dashes moving along the lines. Right labels show each curve's own token or dollar total; letters identify models in monochrome. There is no area fill.
 - Cumulative cost uses bright `o===` signal packets traveling along complete, faint dotted model curves.
 - Models uses sparks circling `:` rails at each model's fixed bar length.
 - Token mix uses a continuously looping sorting machine, with `o` particles falling into fixed colored `#` segments. Monochrome retains `I`, `C`, and `O` for input, cached input, and output.
