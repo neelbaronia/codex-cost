@@ -4,12 +4,7 @@ See how much Codex you've used, and what it would have cost on the API, in an an
 
 ![Codex Cost cycling through its Activity, Cost, Models, Token mix, and GPT-3 era screens](docs/demo.gif)
 
-<!-- Demo video: in GitHub's web editor, drag the MP4 onto the blank line below; GitHub inserts a user-attachments URL that renders as a video player. -->
-
-
 https://github.com/user-attachments/assets/2849ba56-278d-447f-b76a-93fde2f991af
-
-
 
 - **Local and private.** Reads the Codex history already on your Mac. Nothing is uploaded, and there's no API key, account sign-in, npm install, or build step.
 - **Six animated screens:** Activity, Cumulative cost, Models, Token mix, GPT-3 era, and Cost by repo, over all time, 90 days, 30 days, 1 week, or 1 day.
